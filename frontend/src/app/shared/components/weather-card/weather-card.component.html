@@ -1,0 +1,27 @@
+<article
+  class="weather-card"
+  [class.is-today]="isToday()"
+  role="group"
+  [attr.aria-label]="ariaLabel()"
+  tabindex="0"
+>
+  <header class="weather-card__header">
+    <span class="weather-card__day">{{ isToday() ? 'Today' : day() }}</span>
+    <span class="weather-card__date">{{ date() | date: 'MMM d' }}</span>
+  </header>
+
+  <div class="weather-card__icon" aria-hidden="true">{{ resolvedIcon() }}</div>
+
+  <div class="weather-card__condition">{{ condition() }}</div>
+
+  <div class="weather-card__temps">
+    <span class="weather-card__high">{{ temperatureHigh() | temp }}</span>
+    <span class="weather-card__sep" aria-hidden="true">/</span>
+    <span class="weather-card__low">{{ temperatureLow() | temp }}</span>
+  </div>
+
+  <div class="weather-card__precip" aria-label="Chance of precipitation">
+    <span class="weather-card__precip-icon" aria-hidden="true">💧</span>
+    <span>{{ precipitationChance() }}%</span>
+  </div>
+</article>

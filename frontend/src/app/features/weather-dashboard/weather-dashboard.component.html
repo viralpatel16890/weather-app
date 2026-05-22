@@ -1,0 +1,210 @@
+<section class="dashboard" aria-labelledby="dashboard-title">
+
+  <!-- ═══════════ Header ═══════════ -->
+  <header class="dashboard__header">
+    <!-- Top row: brand + controls -->
+    <div class="dashboard__header-top">
+      <div class="dashboard__brand">
+        <span class="dashboard__logo" aria-hidden="true">🌤️</span>
+        <div>
+          <h1 id="dashboard-title">Weather Dashboard</h1>
+          <p class="dashboard__subtitle">
+            Real-time conditions, 7-day forecast and hourly trends
+          </p>
+        </div>
+      </div>
+
+      <div class="dashboard__controls">
+        <app-search-box
+          [initial]="settings.lastCity()"
+          [disabled]="loading()"
+          (search)="onSearch($event)"
+          />
+        <div class="dashboard__buttons">
+          <button
+            type="button"
+            class="ghost-btn"
+            (click)="toggleUnit()"
+            [attr.aria-label]="'Switch to ' + (settings.unit() === 'C' ? 'Fahrenheit' : 'Celsius')"
+            >
+            {{ settings.unitLabel() }}
+          </button>
+          <button
+            type="button"
+            class="ghost-btn icon-btn"
+            (click)="toggleTheme()"
+            [attr.aria-label]="'Switch to ' + (settings.theme() === 'light' ? 'dark' : 'light') + ' theme'"
+            >
+            {{ settings.theme() === 'light' ? '🌙' : '☀️' }}
+          </button>
+          <button
+            type="button"
+            class="ghost-btn icon-btn"
+            (click)="refresh()"
+            aria-label="Refresh weather"
+            [disabled]="loading()"
+            [class.spinning]="loading()"
+            >
+            ⟳
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Popular cities strip -->
+    <div class="popular-cities" role="group" aria-label="Quick city select">
+      <span class="popular-cities__label">Popular:</span>
+      @for (c of popularCities; track c) {
+        <button
+          type="button"
+          class="city-pill"
+          [class.city-pill--active]="settings.lastCity() === c.name"
+          (click)="selectCity(c.name)"
+          [attr.aria-label]="'Load weather for ' + c.name"
+          [attr.aria-pressed]="settings.lastCity() === c.name"
+          >
+          <span aria-hidden="true">{{ c.emoji }}</span>
+          <span>{{ c.name }}</span>
+        </button>
+      }
+    </div>
+  </header>
+
+  <!-- ═══════════ Error ═══════════ -->
+  @if (error(); as e) {
+    <app-error-message
+      [title]="e.status === 404 ? 'City not found' : 'Could not load weather'"
+      [message]="e.message"
+      (retry)="refresh()"
+      />
+  }
+
+  <!-- ═══════════ Loading skeleton ═══════════ -->
+  @if (loading() && !data()) {
+    <div class="hero hero--skel">
+      <div class="hero__left">
+        <app-loading-skeleton height="28px" width="200px" radius="8px" />
+        <app-loading-skeleton height="16px" width="140px" radius="6px" />
+        <app-loading-skeleton height="96px" width="260px" radius="12px" />
+        <app-loading-skeleton height="18px" width="180px" radius="6px" />
+      </div>
+      <div class="hero__right">
+        <app-loading-skeleton height="160px" width="160px" radius="50%" />
+      </div>
+    </div>
+    <div class="stats-grid">
+      @for (_ of [1,2,3,4,5,6,7,8]; track _) {
+        <app-loading-skeleton height="96px" radius="20px" />
+      }
+    </div>
+  }
+
+  <!-- ═══════════ Loaded content ═══════════ -->
+  @if (data(); as d) {
+    <!-- Hero card -->
+    <section class="hero" aria-label="Current weather">
+      <div class="hero__left">
+        <div class="hero__location">
+          <span class="hero__pin" aria-hidden="true">📍</span>
+          <h2>{{ d.location }}</h2>
+        </div>
+        <p class="hero__time">
+          {{ d.current.observedAt | date: 'EEEE, MMM d · HH:mm' }}
+        </p>
+        <div class="hero__temp-row">
+          <span class="hero__icon-sm" aria-hidden="true">{{ currentIcon() }}</span>
+          <span class="hero__value">{{ d.current.temperature | temp: 'long' }}</span>
+        </div>
+        <p class="hero__desc">{{ d.current.description }}</p>
+        <p class="hero__feels">
+          Feels like {{ d.current.feelsLike | temp }}
+          @if (d.current.uvIndex != null) {
+            · UV {{ d.current.uvIndex }}
+          }
+        </p>
+      </div>
+      <div class="hero__right" aria-hidden="true">
+        <div class="hero__bigicon">{{ currentIcon() }}</div>
+      </div>
+    </section>
+    <!-- Stats grid -->
+    <section class="stats-grid" aria-label="Weather conditions">
+      <app-stat-card label="Humidity"   [value]="d.current.humidity + '%'"                                          icon="💧" />
+      <app-stat-card label="Wind"       [value]="(d.current.windSpeed | number: '1.0-1') + ' m/s'"                 icon="🌬️" />
+      <app-stat-card label="Pressure"   [value]="d.current.pressure + ' hPa'"                                       icon="📈" />
+      <app-stat-card label="Visibility" [value]="((d.current.visibility / 1000) | number: '1.0-1') + ' km'"        icon="👁️" />
+      <app-stat-card label="Sunrise"    [value]="formatTime(d.current.sunrise)"                                     icon="🌅" />
+      <app-stat-card label="Sunset"     [value]="formatTime(d.current.sunset)"                                      icon="🌇" />
+      @if (d.airQuality; as aq) {
+        <app-stat-card
+          label="Air Quality"
+          [value]="aq.label"
+          [sublabel]="'AQI ' + aq.aqi + (aq.pm2_5 ? ' · PM2.5 ' + aq.pm2_5 : '')"
+          icon="🍃"
+          />
+      }
+      <app-stat-card label="UV Index"   [value]="d.current.uvIndex ?? '—'"                                          icon="🌞" />
+    </section>
+    <!-- 7-Day forecast -->
+    @defer (on viewport) {
+      <section class="forecast-section" aria-label="7-day forecast">
+        <div class="section-header">
+          <h3 class="section-header__title">
+            <span class="section-header__accent"></span>
+            7-Day Forecast
+          </h3>
+          <span class="section-header__count">{{ d.forecast.length }} days</span>
+        </div>
+        <div class="forecast__strip">
+          @for (f of d.forecast; track trackByDate($index, f)) {
+            <app-weather-card
+              [day]="f.day"
+              [date]="f.date"
+              [temperatureHigh]="f.high"
+              [temperatureLow]="f.low"
+              [condition]="f.condition"
+              [icon]="f.icon"
+              [precipitationChance]="f.precipitationChance"
+              [isToday]="!!f.isToday"
+              />
+          }
+        </div>
+      </section>
+    } @placeholder {
+      <div class="defer-placeholder" aria-hidden="true"></div>
+    }
+    <!-- Hourly chart -->
+    @defer (on viewport) {
+      <section class="hourly-section" aria-label="Hourly forecast">
+        <div class="section-header">
+          <h3 class="section-header__title">
+            <span class="section-header__accent"></span>
+            Next 24 Hours
+          </h3>
+          <span class="section-header__count">{{ d.hourly.length }}h window</span>
+        </div>
+        <app-hourly-chart [data]="d.hourly" />
+      </section>
+    } @placeholder {
+      <div class="defer-placeholder" aria-hidden="true"></div>
+    }
+    <!-- Footer -->
+    <footer class="dashboard__footer">
+      <span class="dashboard__footer-left">
+        <span class="dashboard__footer-dot"></span>
+        Last updated
+        @if (lastUpdated(); as ts) {
+          <time [attr.datetime]="ts.toISOString()">
+            {{ ts | date: 'HH:mm:ss' }}
+          </time>
+        }
+        @if (!lastUpdated()) {
+          <span>—</span>
+        }
+      </span>
+      <span class="dashboard__footer-right">
+        Powered by <strong>OpenWeatherMap</strong>
+      </span>
+    </footer>
+  }
+</section>

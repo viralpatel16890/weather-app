@@ -1,0 +1,109 @@
+:host {
+  display: block;
+}
+
+.weather-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+  padding: 14px 10px;
+  border-radius: 16px;
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border);
+  transition: transform 0.18s cubic-bezier(0.4,0,0.2,1), box-shadow 0.18s ease, border-color 0.18s ease;
+  cursor: default;
+  outline: none;
+  min-width: 108px;
+
+  &:hover,
+  &:focus-visible {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-md);
+    border-color: var(--accent);
+  }
+
+  &.is-today {
+    background: var(--accent-soft);
+    border-color: var(--accent);
+    position: relative;
+
+    &::after {
+      content: "Today";
+      position: absolute;
+      top: -9px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--accent);
+      color: #fff;
+      padding: 1px 7px;
+      border-radius: 5px;
+      font-size: 0.62rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .weather-card__day { color: var(--accent-strong); }
+  }
+
+  &__header {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1px;
+  }
+
+  &__day {
+    font-weight: 700;
+    font-size: 0.875rem;
+    color: var(--text-strong);
+  }
+
+  &__date {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    font-weight: 500;
+  }
+
+  &__icon {
+    font-size: 1.9rem;
+    line-height: 1;
+    margin: 2px 0;
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.06));
+  }
+
+  &__condition {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    font-weight: 500;
+    text-transform: capitalize;
+    text-align: center;
+    line-height: 1.2;
+  }
+
+  &__temps {
+    display: flex;
+    align-items: baseline;
+    gap: 5px;
+    font-size: 0.95rem;
+    color: var(--text-strong);
+  }
+
+  &__high { font-weight: 700; }
+  &__low  { color: var(--text-muted); font-weight: 500; }
+  &__sep  { color: var(--border); font-weight: 300; }
+
+  &__precip {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 0.7rem;
+    color: var(--accent);
+    font-weight: 600;
+    background: var(--accent-soft);
+    padding: 1px 7px;
+    border-radius: 6px;
+  }
+}

@@ -1,0 +1,26 @@
+# Python
+.venv/
+__pycache__/
+.pytest_cache/
+*.py[cod]
+*.pyo
+
+# Backend local environment
+backend/.env
+backend/.pytest_cache/
+backend/pytest-cache-files-ftilql1d/
+
+# Root env files
+.env
+
+# Node / Angular
+frontend/node_modules/
+frontend/.angular/
+frontend/dist/
+
+# Tooling
+.sixth/
+
+# OS
+Thumbs.db
+.DS_Store
