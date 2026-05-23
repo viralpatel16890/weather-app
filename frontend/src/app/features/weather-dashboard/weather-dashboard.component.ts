@@ -100,10 +100,23 @@ export class WeatherDashboardComponent implements OnInit {
 
   private detectAndLoad(): void {
     const fallback = () => this.weather.loadByCity(this.settings.lastCity());
-    if (!('geolocation' in navigator)) return fallback();
+    if (!('geolocation' in navigator)) {
+      fallback();
+      return;
+    }
+    let resolved = false;
+    this.destroyRef.onDestroy(() => { resolved = true; });
     navigator.geolocation.getCurrentPosition(
-      (pos) => { fallback(); void pos; },
-      fallback,
+      ({ coords }) => {
+        if (resolved) return;
+        resolved = true;
+        this.weather.loadByCoords(coords.latitude, coords.longitude);
+      },
+      () => {
+        if (resolved) return;
+        resolved = true;
+        fallback();
+      },
       { timeout: 4000, maximumAge: 600_000 },
     );
   }

@@ -18,13 +18,20 @@ import {
 export class WeatherService {
   private readonly baseUrl = environment.apiBaseUrl;
   private readonly _city = signal('');
+  private readonly _coords = signal<{ lat: number; lon: number } | null>(null);
   private readonly _lastUpdated = signal<Date | null>(null);
 
   private readonly _res = httpResource<WeatherDashboardData>(
     () => {
+      const coords = this._coords();
+      if (coords) {
+        const params: Record<string, string> = { lat: String(coords.lat), lon: String(coords.lon) };
+        return { url: `${this.baseUrl}/api/weather`, params };
+      }
       const city = this._city();
       if (!city) return undefined;
-      return { url: `${this.baseUrl}/api/weather`, params: { city } };
+      const params: Record<string, string> = { city };
+      return { url: `${this.baseUrl}/api/weather`, params };
     },
     {
       parse: (raw: unknown) => {
@@ -65,11 +72,17 @@ export class WeatherService {
   loadByCity(city: string, opts: { force?: boolean } = {}): void {
     const trimmed = city.trim();
     if (!trimmed) return;
+    this._coords.set(null);
     if (opts.force && trimmed.toLowerCase() === this._city().toLowerCase()) {
       this._res.reload();
     } else {
       this._city.set(trimmed);
     }
+  }
+
+  loadByCoords(lat: number, lon: number): void {
+    this._city.set('');
+    this._coords.set({ lat, lon });
   }
 
   clearCache(): void {

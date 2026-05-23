@@ -54,9 +54,26 @@ def create_app(service: WeatherService | None = None) -> Flask:
 
     @app.get("/api/weather")
     def weather() -> Tuple[Any, int]:
-        city = request.args.get("city", "").strip()
+        city    = request.args.get("city", "").strip()
+        lat_str = request.args.get("lat", "").strip()
+        lon_str = request.args.get("lon", "").strip()
+
+        if lat_str and lon_str:
+            try:
+                lat, lon = float(lat_str), float(lon_str)
+            except ValueError:
+                return _err("'lat' and 'lon' must be numeric", 400)
+            try:
+                payload = weather_service.get_dashboard_by_coords(lat, lon)
+                return _ok(payload)
+            except WeatherServiceError as e:
+                return _err(str(e), e.status_code)
+            except Exception as e:  # pragma: no cover — defensive
+                log.exception("unhandled error in /api/weather (coords)")
+                return _err(f"internal error: {e}", 500)
+
         if not city:
-            return _err("query parameter 'city' is required", 400)
+            return _err("query parameter 'city' or 'lat'+'lon' is required", 400)
         try:
             payload = weather_service.get_dashboard(city)
             return _ok(payload)

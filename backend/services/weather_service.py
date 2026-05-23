@@ -58,6 +58,13 @@ class _TTLCache:
             self._store[key] = (time.time(), value)
 
 
+def _safe_result(fut, timeout: float) -> Any:
+    try:
+        return fut.result(timeout=timeout)
+    except Exception:
+        return None
+
+
 class WeatherService:
     def __init__(self, api_key: Optional[str] = None) -> None:
         self.api_key = api_key or config.OPENWEATHER_API_KEY
@@ -65,6 +72,7 @@ class WeatherService:
             log.warning("OPENWEATHER_API_KEY not set — OWM calls will fail.")
         self._cache     = _TTLCache(config.CACHE_TTL_S)
         self._geo_cache = _TTLCache(_GEO_TTL_S)
+        self._pool      = ThreadPoolExecutor(max_workers=4)
 
     # ── public ──────────────────────────────────────────────────────────────
 
@@ -81,20 +89,64 @@ class WeatherService:
 
         name, country, lat, lon = self._geocode(city)
 
-        # Run all four data calls in parallel — total latency ≈ slowest single call
-        with ThreadPoolExecutor(max_workers=4) as pool:
-            fut_current  = pool.submit(self._current_weather,      lat, lon)
-            fut_forecast = pool.submit(self._openmeteo_forecast,   lat, lon)
-            fut_aqi      = pool.submit(self._air_pollution,        lat, lon)
-            fut_uvi      = pool.submit(self._uvi,                  lat, lon)
+        # Run all four data calls in parallel using the shared pool
+        fut_current  = self._pool.submit(self._current_weather,    lat, lon)
+        fut_forecast = self._pool.submit(self._openmeteo_forecast, lat, lon)
+        fut_aqi      = self._pool.submit(self._air_pollution,      lat, lon)
+        fut_uvi      = self._pool.submit(self._uvi,                lat, lon)
+
+        _result_timeout = config.REQUEST_TIMEOUT_S + 2
+        try:
+            current_raw = fut_current.result(timeout=_result_timeout)
+            om_forecast = fut_forecast.result(timeout=_result_timeout)
+        except Exception as exc:
+            raise WeatherServiceError(f"weather fetch failed: {exc}", 502) from exc
+
+        air_quality = _safe_result(fut_aqi, _result_timeout)
+        uv          = _safe_result(fut_uvi, _result_timeout)
 
         payload = assemble(
             location    = f"{name}, {country}" if country else name,
             coords      = {"lat": lat, "lon": lon},
-            current_raw = fut_current.result(),
-            om_forecast = fut_forecast.result(),
-            air_quality = fut_aqi.result(),
-            uv          = fut_uvi.result(),
+            current_raw = current_raw,
+            om_forecast = om_forecast,
+            air_quality = air_quality,
+            uv          = uv,
+        )
+        self._cache.set(cache_key, payload)
+        return payload
+
+    def get_dashboard_by_coords(self, lat: float, lon: float) -> Dict[str, Any]:
+        cache_key = f"dashboard::coords::{lat:.4f},{lon:.4f}"
+        cached = self._cache.get(cache_key)
+        if cached:
+            log.info("cache hit for coords %.4f,%.4f", lat, lon)
+            return cached
+
+        name, country = self._reverse_geocode(lat, lon)
+
+        fut_current  = self._pool.submit(self._current_weather,    lat, lon)
+        fut_forecast = self._pool.submit(self._openmeteo_forecast, lat, lon)
+        fut_aqi      = self._pool.submit(self._air_pollution,      lat, lon)
+        fut_uvi      = self._pool.submit(self._uvi,                lat, lon)
+
+        _result_timeout = config.REQUEST_TIMEOUT_S + 2
+        try:
+            current_raw = fut_current.result(timeout=_result_timeout)
+            om_forecast = fut_forecast.result(timeout=_result_timeout)
+        except Exception as exc:
+            raise WeatherServiceError(f"weather fetch failed: {exc}", 502) from exc
+
+        air_quality = _safe_result(fut_aqi, _result_timeout)
+        uv          = _safe_result(fut_uvi, _result_timeout)
+
+        payload = assemble(
+            location    = f"{name}, {country}" if country else name,
+            coords      = {"lat": lat, "lon": lon},
+            current_raw = current_raw,
+            om_forecast = om_forecast,
+            air_quality = air_quality,
+            uv          = uv,
         )
         self._cache.set(cache_key, payload)
         return payload
@@ -118,6 +170,16 @@ class WeatherService:
         result = (top.get("name", city), top.get("country", ""), top["lat"], top["lon"])
         self._geo_cache.set(key, result)
         return result
+
+    def _reverse_geocode(self, lat: float, lon: float) -> Tuple[str, str]:
+        data = self._get(
+            f"{config.OPENWEATHER_BASE}/geo/1.0/reverse",
+            {"lat": lat, "lon": lon, "limit": 1, "appid": self.api_key},
+        )
+        if not data:
+            return f"{lat:.4f},{lon:.4f}", ""
+        top = data[0]
+        return top.get("name", ""), top.get("country", "")
 
     def _current_weather(self, lat: float, lon: float) -> Dict[str, Any]:
         return self._get(
