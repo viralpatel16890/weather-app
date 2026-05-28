@@ -5,7 +5,7 @@
   "rewrites": [
     {
       "source": "/api-proxy/:path*",
-      "destination": "https://your-app.onrender.com/api/:path*"
+      "destination": "https://your-app.onrender.com/:path*"
     },
     {
       "source": "/((?!api-proxy).*)",
