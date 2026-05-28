@@ -6,7 +6,7 @@
 # Proxy /api-proxy/* → Flask backend on Render (keeps backend URL private, no CORS needed)
 [[redirects]]
   from   = "/api-proxy/*"
-  to     = "https://your-app.onrender.com/api/:splat"
+  to     = "https://weather-app-qqhw.onrender.com/:splat"
   status = 200
   force  = true
 
