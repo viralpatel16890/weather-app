@@ -44,7 +44,7 @@ import { HourlyForecast } from '../../core/models/forecast.interface';
         }
 
         <g class="hourly__points">
-          @for (p of points(); track p; let i = $index) {
+          @for (p of points(); track $index; let i = $index) {
             <circle
               [attr.cx]="p.x"
               [attr.cy]="p.y"
@@ -56,7 +56,7 @@ import { HourlyForecast } from '../../core/models/forecast.interface';
       </svg>
 
       <ul class="hourly__labels" aria-hidden="true">
-        @for (p of points(); track p; let i = $index) {
+        @for (p of points(); track $index; let i = $index) {
           <li>
             @if (i % 3 === 0) {
               <span class="hourly__hour">{{ p.label }}</span>
