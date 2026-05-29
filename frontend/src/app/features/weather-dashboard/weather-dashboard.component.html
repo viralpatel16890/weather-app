@@ -142,6 +142,13 @@
           [sublabel]="'AQI ' + aq.aqi + (aq.pm2_5 ? ' · PM2.5 ' + aq.pm2_5 : '')"
           icon="🍃"
           />
+      } @else {
+        <app-stat-card
+          label="Air Quality"
+          value="Unavailable"
+          sublabel="Temporarily unavailable"
+          icon="🍃"
+          />
       }
       <app-stat-card label="UV Index"   [value]="d.current.uvIndex ?? '—'"                                          icon="🌞" />
     </section>

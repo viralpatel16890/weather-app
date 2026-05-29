@@ -84,9 +84,11 @@ class WeatherService:
         cache_key = f"dashboard::{city.lower()}"
         cached = self._cache.get(cache_key)
         if cached:
-            log.info("cache hit for %s", city)
+            log.info("cache=hit city=%s", city)
             return cached
 
+        log.info("cache=miss city=%s — fetching upstream", city)
+        t0 = time.time()
         name, country, lat, lon = self._geocode(city)
 
         # Run all four data calls in parallel using the shared pool
@@ -105,6 +107,13 @@ class WeatherService:
         air_quality = _safe_result(fut_aqi, _result_timeout)
         uv          = _safe_result(fut_uvi, _result_timeout)
 
+        log.info(
+            "fetch=complete city=%s lat=%.4f lon=%.4f latency_ms=%.0f aqi=%s uvi=%s",
+            city, lat, lon, (time.time() - t0) * 1000,
+            "ok" if air_quality else "unavailable",
+            "ok" if uv is not None else "unavailable",
+        )
+
         payload = assemble(
             location    = f"{name}, {country}" if country else name,
             coords      = {"lat": lat, "lon": lon},
@@ -120,9 +129,11 @@ class WeatherService:
         cache_key = f"dashboard::coords::{lat:.4f},{lon:.4f}"
         cached = self._cache.get(cache_key)
         if cached:
-            log.info("cache hit for coords %.4f,%.4f", lat, lon)
+            log.info("cache=hit lat=%.4f lon=%.4f", lat, lon)
             return cached
 
+        log.info("cache=miss lat=%.4f lon=%.4f — fetching upstream", lat, lon)
+        t0 = time.time()
         name, country = self._reverse_geocode(lat, lon)
 
         fut_current  = self._pool.submit(self._current_weather,    lat, lon)
@@ -139,6 +150,14 @@ class WeatherService:
 
         air_quality = _safe_result(fut_aqi, _result_timeout)
         uv          = _safe_result(fut_uvi, _result_timeout)
+
+        log.info(
+            "fetch=complete coords=%.4f,%.4f location=%s latency_ms=%.0f aqi=%s uvi=%s",
+            lat, lon, f"{name},{country}" if country else name,
+            (time.time() - t0) * 1000,
+            "ok" if air_quality else "unavailable",
+            "ok" if uv is not None else "unavailable",
+        )
 
         payload = assemble(
             location    = f"{name}, {country}" if country else name,
