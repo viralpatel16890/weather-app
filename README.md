@@ -103,7 +103,6 @@ weather-app/
 │   └── requirements.txt
 │
 ├── vercel.json                        # Vercel build config + /api-proxy rewrite
-├── netlify.toml                       # Netlify build config (alternative)
 └── README.md
 ```
 
